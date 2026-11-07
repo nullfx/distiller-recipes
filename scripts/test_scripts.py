@@ -9,6 +9,9 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
+
+import yaml
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
@@ -127,6 +130,84 @@ class IndexTests(unittest.TestCase):
         errors: list[str] = []
         build_index.collect(errors)
         self.assertEqual(errors, [])
+
+
+class GameFileTests(unittest.TestCase):
+    """games/<slug>.yaml: the catalogue entry every recipe needs."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        for folder in ["schema", "games", "recipes/real-game", "reports"]:
+            (self.root / folder).mkdir(parents=True, exist_ok=True)
+        for name in ["recipe.schema.json", "report.schema.json", "game.schema.json"]:
+            (self.root / "schema" / name).write_text((ROOT / "schema" / name).read_text())
+        self.recipe = yaml.safe_load((ROOT / "recipes/example-legacy-dx9-game/wined3d.yaml").read_text())
+        self.recipe["game"] = {"title": "Real Game", "slug": "real-game", "installer": {"url": "https://cdn.example.com/RealGameSetup.exe"}}
+        self.recipe["id"] = "wined3d"
+        self.recipe.pop("forked_from", None)
+        self.game = {"schema": 1, "slug": "real-game", "title": "Real Game", "genres": ["rpg"],
+                     "description": "  A game.\n", "installer": {"url": "https://cdn.example.com/RealGameSetup.exe"}}
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write(self):
+        (self.root / "recipes/real-game/wined3d.yaml").write_text(yaml.safe_dump(self.recipe))
+        if self.game is not None:
+            (self.root / "games/real-game.yaml").write_text(yaml.safe_dump(self.game))
+
+    def collect(self):
+        self.write()
+        errors: list[str] = []
+        with mock.patch.object(build_index, "ROOT", self.root), mock.patch("common.ROOT", self.root):
+            result = build_index.collect(errors)
+        return errors, result
+
+    def test_valid_game_builds_catalogue_and_detail(self):
+        errors, (games, recipes, reports) = self.collect()
+        self.assertEqual(errors, [])
+        with mock.patch.object(build_index, "ROOT", self.root):
+            index, details = build_index.build_index(games, recipes, reports, "https://github.com/nullfx/distiller-recipes")
+        self.assertEqual(index["schema"], 2)
+        entry = index["games"][0]
+        self.assertEqual(entry["description"], "A game.")
+        self.assertEqual(entry["genres"], ["rpg"])
+        self.assertEqual(entry["detail"], "games/real-game.json")
+        self.assertEqual(entry["graphics"], ["wined3d"])
+        self.assertEqual(entry["summary"]["reports"], 0)
+        self.assertIn("recipes", entry, "The app still reads recipes from index.json")
+        detail = details["real-game"]
+        self.assertEqual(detail["recipes"][0]["recipe"]["id"], "wined3d")
+        self.assertEqual(detail["recipes"][0]["reports"], [])
+
+    def test_every_recipe_needs_a_game_file(self):
+        self.game = None
+        errors, _ = self.collect()
+        self.assertTrue(any("there's no games/real-game.yaml" in e for e in errors), errors)
+
+    def test_recipe_must_agree_with_game(self):
+        self.recipe["game"]["title"] = "Other Title"
+        self.recipe["game"]["installer"] = {"url": "https://mirror.example.com/RealGameSetup.exe"}
+        errors, _ = self.collect()
+        self.assertTrue(any("differs from games/real-game.yaml" in e for e in errors), errors)
+        self.assertTrue(any("isn't the official installer" in e for e in errors), errors)
+
+    def test_game_without_recipes_and_bad_fields_are_rejected(self):
+        (self.root / "games/lonely-game.yaml").write_text(yaml.safe_dump({"schema": 1, "slug": "lonely-game", "title": "Lonely"}))
+        self.game["genres"] = ["not-a-genre"]
+        self.game["website"] = "http://insecure.example.com"
+        errors, _ = self.collect()
+        self.assertTrue(any("lonely-game.yaml: the game has no recipes" in e for e in errors), errors)
+        self.assertTrue(any("genres" in e for e in errors), errors)
+        self.assertTrue(any("website" in e for e in errors), errors)
+
+    def test_forks_may_add_game_files(self):
+        errors, notices = check_pr.problems([("A", "games/real-game.yaml"), ("M", "games/other-game.yaml")])
+        self.assertEqual(errors, [])
+        self.assertTrue(any("game's details" in n for n in notices))
+        errors, _ = check_pr.problems([("A", "games/real-game.json")])
+        self.assertTrue(errors)
 
 
 class IssueConversionTests(unittest.TestCase):

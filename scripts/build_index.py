@@ -1,8 +1,13 @@
 #!/usr/bin/env python3
-"""Validate every recipe and report, then write the index the Distiller app downloads.
+"""Validate every game, recipe and report, then write what the app and the website read.
 
-    python scripts/build_index.py --check          # validate only (CI on pull requests)
+    python scripts/build_index.py --check                  # validate only (CI on pull requests)
+    python scripts/build_index.py --check --check-links    # also check official installer and website links
     python scripts/build_index.py --out dist/index.json --repository https://github.com/nullfx/distiller-recipes
+
+Output, next to --out:
+    index.json            the catalogue: every game with its details, recipes and rating summaries
+    games/<slug>.json     everything for one game: its recipes in full and every report, newest first
 """
 from __future__ import annotations
 
@@ -11,12 +16,16 @@ import datetime as dt
 import json
 import statistics
 import sys
+import urllib.request
 from collections import defaultdict
 from pathlib import Path
 
 from common import ROOT, SLUG, TIER_SCORE, hardware_key, load_yaml, schema_errors, validator
 
 SCORE_TIER = {score: tier for tier, score in TIER_SCORE.items()}
+INDEX_SCHEMA = 2
+# Catalogue fields copied from games/<slug>.yaml into index.json.
+GAME_FIELDS = ["publisher", "developer", "release_year", "genres", "description", "website", "stores", "installer"]
 
 
 def summarize(reports: list[dict]) -> dict:
@@ -32,9 +41,30 @@ def summarize(reports: list[dict]) -> dict:
     }
 
 
+def collect_games(errors: list[str]) -> dict[str, dict]:
+    game_validator = validator("game.schema.json")
+    games: dict[str, dict] = {}
+    for path in sorted(ROOT.glob("games/*")):
+        label = str(path.relative_to(ROOT))
+        if path.suffix != ".yaml" or not SLUG.match(path.stem):
+            errors.append(f"{label}: game files must be named games/<lowercase-slug>.yaml")
+            continue
+        data = load_yaml(path)
+        found = schema_errors(game_validator, data, label)
+        errors.extend(found)
+        if found:
+            continue
+        if data["slug"] != path.stem:
+            errors.append(f"{label}: slug is {data['slug']!r} but the file name is {path.stem!r}")
+            continue
+        games[path.stem] = data
+    return games
+
+
 def collect(errors: list[str]):
     recipe_validator = validator("recipe.schema.json")
     report_validator = validator("report.schema.json")
+    games = collect_games(errors)
 
     recipes: dict[tuple[str, str], tuple[Path, dict]] = {}
     for path in sorted(ROOT.glob("recipes/*/*")):
@@ -52,6 +82,16 @@ def collect(errors: list[str]):
             errors.append(f"{label}: game.slug is {data['game']['slug']!r} but the folder is {slug!r}")
         if data["id"] != recipe_id:
             errors.append(f"{label}: id is {data['id']!r} but the file name is {recipe_id!r}")
+        game = games.get(slug)
+        if game is None:
+            errors.append(f"{label}: there's no games/{slug}.yaml; add the game with its first recipe")
+        else:
+            if data["game"]["title"] != game["title"]:
+                errors.append(f"{label}: game.title {data['game']['title']!r} differs from games/{slug}.yaml ({game['title']!r})")
+            recipe_installer = data["game"].get("installer", {}).get("url")
+            game_installer = game.get("installer", {}).get("url")
+            if recipe_installer and recipe_installer != game_installer:
+                errors.append(f"{label}: game.installer.url isn't the official installer in games/{slug}.yaml")
         recipes[(slug, recipe_id)] = (path, data)
 
     for (slug, recipe_id), (path, data) in recipes.items():
@@ -79,13 +119,46 @@ def collect(errors: list[str]):
             continue
         reports[(slug, recipe_id)].append(data)
 
-    return recipes, reports
+    for slug in sorted(set(games) - {slug for slug, _ in recipes}):
+        errors.append(f"games/{slug}.yaml: the game has no recipes yet; add it together with its first recipe")
+
+    return games, recipes, reports
 
 
-def build_index(recipes, reports, repository: str) -> dict:
+def check_links(games: dict[str, dict], errors: list[str]) -> None:
+    """Checks that each game's official installer and website still answer (HEAD, then a 1-byte GET)."""
+    for slug, game in sorted(games.items()):
+        for what, url in [("installer.url", game.get("installer", {}).get("url")), ("website", game.get("website"))]:
+            if not url:
+                continue
+            status = None
+            for method, headers in [("HEAD", {}), ("GET", {"Range": "bytes=0-0"})]:
+                request = urllib.request.Request(url, method=method, headers={"User-Agent": "distiller-recipes-ci", **headers})
+                try:
+                    with urllib.request.urlopen(request, timeout=20) as response:
+                        status = response.status
+                except Exception as error:  # noqa: BLE001 - any failure means the link doesn't work
+                    status = getattr(error, "code", None) or str(error)
+                if isinstance(status, int) and status < 400:
+                    break
+            if not (isinstance(status, int) and status < 400):
+                errors.append(f"games/{slug}.yaml: {what} {url} doesn't answer ({status})")
+
+
+def build_index(games_info: dict[str, dict], recipes, reports, repository: str) -> tuple[dict, dict[str, dict]]:
+    """Returns index.json and the per-game detail files."""
     games: dict[str, dict] = {}
+    details: dict[str, dict] = {}
     for (slug, recipe_id), (path, data) in sorted(recipes.items()):
-        game = games.setdefault(slug, {"slug": slug, "title": data["game"]["title"], "recipes": []})
+        info = games_info[slug]
+        game = games.get(slug)
+        if game is None:
+            game = {"slug": slug, "title": info["title"]}
+            game.update({key: info[key].strip() if isinstance(info[key], str) else info[key] for key in GAME_FIELDS if key in info})
+            game["detail"] = f"games/{slug}.json"
+            game["recipes"] = []
+            games[slug] = game
+            details[slug] = {"schema": INDEX_SCHEMA, "repository": repository, **{k: v for k, v in game.items() if k != "recipes"}, "recipes": []}
         recipe_reports = reports.get((slug, recipe_id), [])
         by_hardware: dict[str, list[dict]] = defaultdict(list)
         for report in recipe_reports:
@@ -103,13 +176,30 @@ def build_index(recipes, reports, repository: str) -> dict:
         if "forked_from" in data:
             entry["forked_from"] = data["forked_from"]
         game["recipes"].append(entry)
+        newest_first = sorted(recipe_reports, key=lambda r: r["date"], reverse=True)
+        details[slug]["recipes"].append({
+            **entry,
+            "recipe": data,
+            "reports": [{**report, "hardware_key": hardware_key(report["hardware"])} for report in newest_first],
+        })
 
-    return {
-        "schema": 1,
-        "generated_at": dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+    for slug, game in games.items():
+        all_reports = [r for (s, _), items in reports.items() if s == slug for r in items]
+        game["summary"] = summarize(all_reports)
+        game["graphics"] = sorted({recipe["graphics"] for recipe in game["recipes"]})
+        game["updated"] = max((r["date"] for r in all_reports), default=None)
+        details[slug]["summary"] = game["summary"]
+
+    generated = dt.datetime.now(dt.timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    for detail in details.values():
+        detail["generated_at"] = generated
+    index = {
+        "schema": INDEX_SCHEMA,
+        "generated_at": generated,
         "repository": repository,
         "games": sorted(games.values(), key=lambda g: g["title"].lower()),
     }
+    return index, details
 
 
 def main() -> int:
@@ -117,10 +207,13 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="validate only; write nothing")
     parser.add_argument("--out", default="dist/index.json", help="where to write the index")
     parser.add_argument("--repository", default="https://github.com/nullfx/distiller-recipes")
+    parser.add_argument("--check-links", action="store_true", help="also check that official installer and website links answer")
     args = parser.parse_args()
 
     errors: list[str] = []
-    recipes, reports = collect(errors)
+    games, recipes, reports = collect(errors)
+    if args.check_links and not errors:
+        check_links(games, errors)
     if errors:
         print(f"{len(errors)} problem(s) found:", file=sys.stderr)
         for error in errors:
@@ -129,16 +222,19 @@ def main() -> int:
 
     report_count = sum(len(items) for items in reports.values())
     if args.check:
-        print(f"OK: {len(recipes)} recipes and {report_count} reports are valid.")
+        print(f"OK: {len(games)} games, {len(recipes)} recipes and {report_count} reports are valid.")
         return 0
 
-    index = build_index(recipes, reports, args.repository)
+    index, details = build_index(games, recipes, reports, args.repository)
     out = Path(args.out)
     if not out.is_absolute():
         out = ROOT / out
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"Wrote {out}: {len(index['games'])} games, {len(recipes)} recipes, {report_count} reports.")
+    (out.parent / "games").mkdir(exist_ok=True)
+    for slug, detail in details.items():
+        (out.parent / "games" / f"{slug}.json").write_text(json.dumps(detail, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"Wrote {out} and {len(details)} game files: {len(index['games'])} games, {len(recipes)} recipes, {report_count} reports.")
     return 0
 
 

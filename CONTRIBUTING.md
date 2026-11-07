@@ -10,10 +10,11 @@ The easiest way: in Distiller choose **Create Recipe…**, test the game, then *
 
 ## Writing a recipe by hand
 
-1. Copy an example from `recipes/` into `recipes/<game-slug>/<recipe-id>.yaml`. The folder name must equal `game.slug`, and the file name must equal `id`.
-2. Test it on your own Mac: `distiller recipe validate <file>`, then `distiller install <file>` and `distiller launch <game-id>`.
-3. Run `python3 scripts/build_index.py --check`.
-4. Open a pull request.
+1. If the game is new, add `games/<game-slug>.yaml` (see `schema/game.schema.json` and the examples in `games/`): its title, publisher, a one-paragraph description in your own words, and the official installer link. Recipes' `game.title` and `game.installer.url` must match it.
+2. Copy an example from `recipes/` into `recipes/<game-slug>/<recipe-id>.yaml`. The folder name must equal `game.slug`, and the file name must equal `id`.
+3. Test it on your own Mac: `distiller recipe validate <file>`, then `distiller install <file>` and `distiller launch <game-id>`.
+4. Run `python3 scripts/build_index.py --check`.
+5. Open a pull request.
 
 To improve someone else's recipe without replacing it, make a fork: a new file with a new `id` and `forked_from: <game-slug>/<recipe-id>`.
 

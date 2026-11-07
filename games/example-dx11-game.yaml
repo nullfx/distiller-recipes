@@ -1,0 +1,10 @@
+# EXAMPLE GAME. Illustrative only; delete with the example recipes before real games arrive.
+schema: 1
+slug: example-dx11-game
+title: Example DX11 Game
+publisher: Example Studio
+developer: Example Studio
+release_year: 2021
+genres: [action, rpg]
+description: >
+  A made-up DirectX 11 game that shows how a game file, its recipes and their reports fit together.

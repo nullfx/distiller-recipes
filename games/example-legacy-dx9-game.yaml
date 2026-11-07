@@ -1,0 +1,9 @@
+# EXAMPLE GAME. Illustrative only; delete with the example recipes before real games arrive.
+schema: 1
+slug: example-legacy-dx9-game
+title: Example Legacy DX9 Game
+publisher: Example Studio
+release_year: 2008
+genres: [strategy]
+description: >
+  A made-up DirectX 9 game, run with WineD3D, to show a simple single-recipe game.

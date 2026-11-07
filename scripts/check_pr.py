@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Check that a pull request from a fork only adds or changes recipes and reports.
+"""Check that a pull request from a fork only adds or changes games, recipes and reports.
 
     python scripts/check_pr.py --base origin/main
 
 Pull requests opened from the Distiller app come from the player's fork and should touch
-nothing but recipes/<game>/<recipe>.yaml and reports/<game>/<recipe>/<report>.yaml. Anything
+nothing but games/<game>.yaml, recipes/<game>/<recipe>.yaml and reports/<game>/<recipe>/<report>.yaml. Anything
 else (scripts, workflows, the schema) needs a maintainer. The content itself is validated
 by build_index.py in the Validate workflow.
 """
@@ -15,6 +15,7 @@ import re
 import subprocess
 import sys
 
+GAME = re.compile(r"^games/[a-z0-9][a-z0-9-]{1,63}\.yaml$")
 RECIPE = re.compile(r"^recipes/[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}\.yaml$")
 REPORT = re.compile(r"^reports/[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}\.yaml$")
 
@@ -25,14 +26,16 @@ def problems(changes: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
     notices: list[str] = []
     for status, path in changes:
         kind = status[:1]
-        if not (RECIPE.match(path) or REPORT.match(path)):
-            errors.append(f"{path}: contributions from forks may only change recipes/ and reports/ YAML files.")
+        if not (GAME.match(path) or RECIPE.match(path) or REPORT.match(path)):
+            errors.append(f"{path}: contributions from forks may only change games/, recipes/ and reports/ YAML files.")
         elif kind == "D":
             errors.append(f"{path}: contributions from forks can't delete files. Ask a maintainer.")
         elif kind not in ("A", "M"):
             errors.append(f"{path}: unexpected change type {status}.")
         elif kind == "M" and RECIPE.match(path):
             notices.append(f"{path}: changes an existing recipe. Check that its authors agree, or ask for a fork with forked_from.")
+        elif kind == "M" and GAME.match(path):
+            notices.append(f"{path}: changes an existing game's details. Check the official installer link especially.")
     return errors, notices
 
 
@@ -62,7 +65,7 @@ def main() -> int:
         print(f"::error::{error}")
     if errors:
         return 1
-    print(f"OK: {len(changes)} changed file(s), all recipes or reports.")
+    print(f"OK: {len(changes)} changed file(s), all games, recipes or reports.")
     return 0
 
 

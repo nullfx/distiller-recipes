@@ -8,12 +8,13 @@ A **recipe** says how to install and run one game: which Wine build and graphics
 
 | Path | Contents |
 | --- | --- |
+| `games/<game-slug>.yaml` | One file per game: title, publisher, release year, genres, description, links and its official installer. Every recipe needs one. |
 | `recipes/<game-slug>/<recipe-id>.yaml` | One recipe per file. |
 | `reports/<game-slug>/<recipe-id>/<report-id>.yaml` | One compatibility report per file. |
-| `schema/` | JSON Schemas for recipes and reports. |
-| `scripts/build_index.py` | Validates everything and writes `dist/index.json`. |
+| `schema/` | JSON Schemas for games, recipes and reports. |
+| `scripts/build_index.py` | Validates everything and writes `dist/index.json` (the catalogue) and `dist/games/<slug>.json` (each game in full). |
 | `scripts/issue_to_report.py` | Turns a report issue into a report file. |
-| `scripts/check_pr.py` | Checks that a pull request from a fork only touches recipes and reports. |
+| `scripts/check_pr.py` | Checks that a pull request from a fork only touches games, recipes and reports. |
 
 The `example-*` folders show the format and are not real results. Delete them before you publish.
 

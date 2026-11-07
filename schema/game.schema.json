@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nullfx/distiller-recipes/blob/main/schema/game.schema.json",
+  "title": "Distiller game",
+  "description": "One game in the catalogue: games/<slug>.yaml. Recipes for it live in recipes/<slug>/.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "slug", "title"],
+  "properties": {
+    "schema": { "const": 1 },
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$", "description": "Matches the file name and recipes/<slug>/." },
+    "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+    "publisher": { "type": "string", "maxLength": 120 },
+    "developer": { "type": "string", "maxLength": 120 },
+    "release_year": { "type": "integer", "minimum": 1970, "maximum": 2100 },
+    "genres": {
+      "type": "array",
+      "maxItems": 6,
+      "uniqueItems": true,
+      "items": {
+        "enum": ["action", "adventure", "arcade", "card", "casual", "fighting", "mmo", "platformer", "puzzle",
+                 "racing", "rpg", "shooter", "simulation", "sports", "strategy", "survival", "tool", "other"]
+      }
+    },
+    "description": { "type": "string", "maxLength": 1000, "description": "One short paragraph, in your own words." },
+    "website": { "type": "string", "pattern": "^https://" },
+    "stores": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "url"],
+        "properties": {
+          "name": { "enum": ["publisher", "steam", "gog", "epic", "microsoft", "other"] },
+          "url": { "type": "string", "pattern": "^https://" }
+        }
+      }
+    },
+    "installer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url"],
+      "description": "The publisher's official, publicly downloadable installer. Recipes' game.installer must match it.",
+      "properties": {
+        "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
+        "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
+      }
+    }
+  }
+}
