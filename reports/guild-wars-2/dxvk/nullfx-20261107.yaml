@@ -1,7 +1,7 @@
 schema: 1
 game: guild-wars-2
 recipe: dxvk
-tier: platinum
+tier: gold
 hardware:
   chip: Apple M3 Pro
   macos: '27.2'
@@ -14,4 +14,3 @@ components:
   wine: wine-staging@11.21
   graphics: dxvk-macos@1.10.3-20230507-repack
 date: '2026-11-07'
-fps_avg: 60

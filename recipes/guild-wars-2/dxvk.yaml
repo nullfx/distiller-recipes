@@ -30,8 +30,8 @@ install:
     path: cache/Gw2Setup-64.exe
     wait: true
 env:
-  WINEMSYNC_QLIMIT: '50'
   DXVK_ASYNC: '1'
+  WINEMSYNC_QLIMIT: '50'
 launch:
   exe: C:\Program Files\Guild Wars 2\Gw2-64.exe
   args:
