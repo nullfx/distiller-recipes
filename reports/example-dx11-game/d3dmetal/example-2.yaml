@@ -1,0 +1,15 @@
+# EXAMPLE REPORT (illustrative, not a real result).
+schema: 1
+game: example-dx11-game
+recipe: d3dmetal
+tier: platinum
+fps_avg: 60
+hardware:
+  chip: Apple M3 Pro
+  chip_family: M3
+  chip_tier: Pro
+  gpu_cores: 18
+  memory_gb: 18
+  macos: "27.0"
+  rosetta: true
+date: "2026-10-20"

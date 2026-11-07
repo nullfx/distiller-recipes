@@ -1,0 +1,18 @@
+# EXAMPLE REPORT (illustrative, not a real result).
+schema: 1
+game: example-dx11-game
+recipe: d3dmetal
+tier: gold
+fps_avg: 58
+resolution: 2560x1600
+hardware:
+  chip: Apple M3 Pro
+  chip_family: M3
+  chip_tier: Pro
+  gpu_cores: 18
+  memory_gb: 18
+  macos: "27.1"
+  rosetta: true
+components: { wine: crossover@24.0.7, graphics: d3dmetal@4.0 }
+date: "2026-11-01"
+notes: Example only.

@@ -1,0 +1,15 @@
+# EXAMPLE REPORT (illustrative, not a real result).
+schema: 1
+game: example-dx11-game
+recipe: dxmt-low-memory
+tier: gold
+fps_avg: 30
+hardware:
+  chip: Apple M1
+  chip_family: M1
+  chip_tier: Base
+  gpu_cores: 8
+  memory_gb: 8
+  macos: "26.4"
+  rosetta: true
+date: "2026-10-14"

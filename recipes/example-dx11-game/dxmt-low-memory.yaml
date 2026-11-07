@@ -1,0 +1,39 @@
+# EXAMPLE RECIPE: a fork of example-dx11-game/d3dmetal tuned for 8 GB Macs.
+schema: 1
+id: dxmt-low-memory
+name: DXMT for 8 GB Macs
+forked_from: example-dx11-game/d3dmetal
+authors: [distiller-maintainers]
+
+game:
+  title: Example DX11 Game
+  slug: example-dx11-game
+
+stack:
+  runner: { family: any, min_version: "11.0" }
+  graphics: dxmt
+
+prefix:
+  windows: win10
+  winetricks: [vcrun2022]
+
+install:
+  - user_file:
+      id: installer
+      prompt: Choose the game's Windows installer (setup.exe)
+      to: cache/setup.exe
+  - run_windows:
+      path: cache/setup.exe
+      args: ["/S"]
+
+env:
+  DXMT_CONFIG: "d3d11.preferredMaxFrameRate=30;"
+
+launch:
+  exe: 'C:\Games\Example DX11 Game\Game.exe'
+  args: ["-windowed", "-textures=low"]
+
+overlays:
+  - when: { memory_gb: ">=16" }
+    note: Medium textures when memory allows
+    args: ["-windowed", "-textures=medium"]

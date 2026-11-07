@@ -1,0 +1,15 @@
+# EXAMPLE REPORT (illustrative, not a real result).
+schema: 1
+game: example-legacy-dx9-game
+recipe: wined3d
+tier: bronze
+hardware:
+  chip: Apple M2 Max
+  chip_family: M2
+  chip_tier: Max
+  gpu_cores: 30
+  memory_gb: 32
+  macos: "27.1"
+  rosetta: true
+date: "2026-10-30"
+notes: Example only.

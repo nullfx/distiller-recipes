@@ -1,0 +1,50 @@
+# EXAMPLE RECIPE. Shows download (with a placeholder checksum), extract, copy and dll_override.
+# The download below will fail its checksum on purpose: replace url and sha256 with a real,
+# official patch before using this as a template.
+schema: 1
+id: wined3d
+name: WineD3D with the 1.1 patch
+authors: [distiller-maintainers]
+
+game:
+  title: Example Legacy DX9 Game
+  slug: example-legacy-dx9-game
+
+stack:
+  runner: { family: any, min_version: "11.0" }
+  graphics: wined3d
+  sync: msync
+
+prefix:
+  windows: win7
+  winetricks: [d3dx9, xact]
+
+install:
+  - user_file:
+      id: game-folder-zip
+      prompt: Choose a .zip of the game folder from your original install
+      to: cache/game.zip
+  - extract:
+      archive: cache/game.zip
+      to: drive_c/Games/Legacy
+  - download:
+      url: https://example.com/legacy-game/patch-1.1.zip
+      sha256: "0000000000000000000000000000000000000000000000000000000000000000"
+      to: cache/patch-1.1.zip
+  - extract:
+      archive: cache/patch-1.1.zip
+      to: cache/patch
+  - copy:
+      from: cache/patch/game.exe
+      to: drive_c/Games/Legacy/game.exe
+  - dll_override:
+      d3d9: builtin
+
+launch:
+  exe: 'C:\Games\Legacy\game.exe'
+
+overlays:
+  - when: { rosetta: false }
+    note: Rosetta is missing; requires an ARM64 Wine build
+    stack:
+      runner: { family: any, min_version: "11.0", arch: arm64 }

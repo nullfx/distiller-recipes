@@ -1,0 +1,65 @@
+# Field ids must match CommunityClient.reportURL in the Distiller app, which pre-fills them.
+# Labels must match LABELS in scripts/issue_to_report.py.
+name: Compatibility report
+description: Tell other players how a recipe ran on your Mac. The Distiller app fills this in for you.
+title: "Report: "
+body:
+  - type: markdown
+    attributes:
+      value: Thanks for reporting. A maintainer adds the `report` label, which turns this issue into a pull request.
+  - type: input
+    id: game_slug
+    attributes: { label: Game slug }
+    validations: { required: true }
+  - type: input
+    id: recipe_id
+    attributes: { label: Recipe ID }
+    validations: { required: true }
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Playability
+      description: "platinum: perfect out of the box · gold: perfect with the recipe's tweaks · silver: minor issues · bronze: major issues · borked: doesn't run"
+      options: [platinum, gold, silver, bronze, borked]
+    validations: { required: true }
+  - type: input
+    id: fps_avg
+    attributes: { label: Average FPS }
+  - type: input
+    id: chip
+    attributes: { label: Chip, placeholder: Apple M3 Pro }
+    validations: { required: true }
+  - type: input
+    id: chip_family
+    attributes: { label: Chip family, placeholder: M3 }
+    validations: { required: true }
+  - type: input
+    id: chip_tier
+    attributes: { label: Chip tier, placeholder: "Base, Pro, Max or Ultra" }
+    validations: { required: true }
+  - type: input
+    id: gpu_cores
+    attributes: { label: GPU cores }
+  - type: input
+    id: memory_gb
+    attributes: { label: Memory (GB) }
+    validations: { required: true }
+  - type: input
+    id: macos
+    attributes: { label: macOS version, placeholder: "27.1" }
+    validations: { required: true }
+  - type: dropdown
+    id: rosetta
+    attributes:
+      label: Rosetta available
+      options: ["true", "false"]
+    validations: { required: true }
+  - type: input
+    id: wine_version
+    attributes: { label: Wine build }
+  - type: input
+    id: graphics_version
+    attributes: { label: Graphics layer }
+  - type: textarea
+    id: notes
+    attributes: { label: Notes }

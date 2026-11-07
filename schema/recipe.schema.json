@@ -1,0 +1,282 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nullfx/distiller-recipes/blob/main/schema/recipe.schema.json",
+  "title": "Distiller recipe",
+  "description": "How to install and run one Windows game on macOS with Wine. Recipes are data only: no step can run a command on the Mac itself.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "id", "game", "stack"],
+  "properties": {
+    "schema": { "const": 1 },
+    "id": { "$ref": "#/$defs/slug", "description": "Unique within the game; also the file name." },
+    "name": { "type": "string", "maxLength": 80, "description": "A short label, such as 'D3DMetal, high settings'." },
+    "forked_from": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}$",
+      "description": "<game-slug>/<recipe-id> of the recipe this one started from."
+    },
+    "authors": { "type": "array", "items": { "type": "string", "maxLength": 80 }, "maxItems": 20 },
+    "notes": { "type": "string", "maxLength": 2000 },
+    "game": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "slug"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "slug": { "$ref": "#/$defs/slug" },
+        "publisher": { "type": "string", "maxLength": 120 },
+        "website": { "type": "string", "pattern": "^https://" },
+        "installer": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url"],
+          "description": "The publisher's official, publicly downloadable installer. Shared recipes install from it; Distiller's community check proves that works before submitting.",
+          "properties": {
+            "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
+            "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
+          }
+        }
+      }
+    },
+    "stack": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["runner", "graphics"],
+      "properties": {
+        "runner": { "$ref": "#/$defs/runner" },
+        "graphics": { "$ref": "#/$defs/graphics" },
+        "sync": { "$ref": "#/$defs/sync" }
+      }
+    },
+    "prefix": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "windows": { "enum": ["win11", "win10", "win81", "win8", "win7", "winxp"] },
+        "retina": { "type": "boolean" },
+        "winetricks": { "$ref": "#/$defs/verbs" },
+        "dll_overrides": { "$ref": "#/$defs/dll_overrides" },
+        "registry": { "type": "array", "items": { "$ref": "#/$defs/registry_edit" } }
+      }
+    },
+    "install": { "type": "array", "items": { "$ref": "#/$defs/step" }, "maxItems": 50 },
+    "env": { "$ref": "#/$defs/env" },
+    "launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exe"],
+      "properties": {
+        "exe": { "$ref": "#/$defs/bottle_path" },
+        "args": { "$ref": "#/$defs/args" },
+        "working_dir": { "$ref": "#/$defs/bottle_path" }
+      }
+    },
+    "overlays": { "type": "array", "items": { "$ref": "#/$defs/overlay" }, "maxItems": 30 }
+  },
+  "$defs": {
+    "slug": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,63}$" },
+    "runner": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["family"],
+      "properties": {
+        "family": { "enum": ["crossover", "winehq", "gptk", "any"] },
+        "min_version": { "type": "string", "pattern": "^[0-9]+(\\.[0-9]+)*$" },
+        "arch": { "enum": ["x86_64", "arm64", "universal"] }
+      }
+    },
+    "graphics": { "enum": ["d3dmetal", "dxmt", "dxvk", "wined3d"] },
+    "sync": { "enum": ["msync", "esync", "none"] },
+    "verb": {
+      "description": "Keep in sync with RecipePolicy.winetricksVerbs in the Distiller app.",
+      "enum": [
+        "vcrun2005", "vcrun2008", "vcrun2010", "vcrun2012", "vcrun2013",
+        "vcrun2015", "vcrun2017", "vcrun2019", "vcrun2022",
+        "d3dcompiler_43", "d3dcompiler_46", "d3dcompiler_47",
+        "d3dx9", "d3dx10", "d3dx11_42", "d3dx11_43",
+        "dotnet40", "dotnet45", "dotnet472", "dotnet48",
+        "dotnetdesktop6", "dotnetdesktop8",
+        "xact", "xact_x64", "xinput", "physx", "faudio", "openal",
+        "corefonts", "tahoma", "mfc42", "mfc140",
+        "msxml3", "msxml6", "quartz", "devenum"
+      ]
+    },
+    "verbs": { "type": "array", "items": { "$ref": "#/$defs/verb" }, "uniqueItems": true },
+    "dll_overrides": {
+      "type": "object",
+      "propertyNames": { "pattern": "^[A-Za-z0-9_.-]+$" },
+      "additionalProperties": {
+        "enum": ["native", "builtin", "native,builtin", "builtin,native", "n", "b", "n,b", "b,n", "disabled", ""]
+      }
+    },
+    "env": {
+      "description": "Only WINE*, DXVK_*, DXMT_*, MTL_*, D3DM_*, MVK_* and VKD3D_* variables, minus those that redirect Wine. Keep in sync with RecipePolicy in the Distiller app.",
+      "type": "object",
+      "propertyNames": {
+        "allOf": [
+          { "pattern": "^(WINE|DXVK_|DXMT_|MTL_|D3DM_|MVK_|VKD3D_)[A-Z0-9_]*$" },
+          { "not": { "enum": ["WINE", "WINEPREFIX", "WINELOADER", "WINESERVER", "WINEDLLPATH", "WINEARCH", "WINEDLLOVERRIDES"] } }
+        ]
+      },
+      "additionalProperties": { "type": "string", "maxLength": 500 }
+    },
+    "args": { "type": "array", "items": { "type": "string", "maxLength": 300 }, "maxItems": 40 },
+    "bottle_path": {
+      "description": "cache/…, drive_c/… or C:\\…; no '..' segments.",
+      "type": "string",
+      "maxLength": 300,
+      "allOf": [
+        { "pattern": "^(cache(/|$)|drive_c(/|$)|[Cc]:[\\\\/])" },
+        { "not": { "pattern": "(^|[\\\\/])\\.\\.?([\\\\/]|$)" } }
+      ]
+    },
+    "registry_value": {
+      "oneOf": [
+        { "type": "string", "maxLength": 1000 },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["dword"],
+          "properties": { "dword": { "type": "integer", "minimum": 0, "maximum": 4294967295 } }
+        }
+      ]
+    },
+    "registry_edit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "values"],
+      "properties": {
+        "key": { "type": "string", "pattern": "^(HKCU|HKLM|HKEY_CURRENT_USER|HKEY_LOCAL_MACHINE)\\\\" },
+        "values": { "type": "object", "additionalProperties": { "$ref": "#/$defs/registry_value" } }
+      }
+    },
+    "comparison": {
+      "description": "A number with an optional operator, such as \"<16\", \">=24\" or \"27\".",
+      "oneOf": [
+        { "type": "integer" },
+        { "type": "string", "pattern": "^(<=|>=|==|<|>)?\\s*[0-9]+(\\.[0-9]+)*$" }
+      ]
+    },
+    "string_or_list": {
+      "oneOf": [
+        { "type": "string" },
+        { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+      ]
+    },
+    "condition": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "chip": { "type": "string", "description": "Glob against the chip name, such as 'Apple M1*'." },
+        "chip_family": { "$ref": "#/$defs/string_or_list" },
+        "chip_tier": { "$ref": "#/$defs/string_or_list" },
+        "memory_gb": { "$ref": "#/$defs/comparison" },
+        "gpu_cores": { "$ref": "#/$defs/comparison" },
+        "macos": { "$ref": "#/$defs/comparison" },
+        "rosetta": { "type": "boolean" }
+      }
+    },
+    "overlay": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["when"],
+      "properties": {
+        "when": { "$ref": "#/$defs/condition" },
+        "note": { "type": "string", "maxLength": 200 },
+        "stack": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "runner": { "$ref": "#/$defs/runner" },
+            "graphics": { "$ref": "#/$defs/graphics" },
+            "sync": { "$ref": "#/$defs/sync" }
+          }
+        },
+        "env": { "$ref": "#/$defs/env" },
+        "dll_overrides": { "$ref": "#/$defs/dll_overrides" },
+        "registry": { "type": "array", "items": { "$ref": "#/$defs/registry_edit" } },
+        "winetricks": { "$ref": "#/$defs/verbs" },
+        "append_winetricks": { "$ref": "#/$defs/verbs" },
+        "args": { "$ref": "#/$defs/args" }
+      }
+    },
+    "step": {
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "additionalProperties": false,
+      "properties": {
+        "download": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["url", "sha256", "to"],
+          "properties": {
+            "url": { "type": "string", "pattern": "^https://", "maxLength": 1000 },
+            "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+            "to": { "$ref": "#/$defs/bottle_path" }
+          }
+        },
+        "extract": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["archive", "to"],
+          "properties": {
+            "archive": { "$ref": "#/$defs/bottle_path" },
+            "to": { "$ref": "#/$defs/bottle_path" }
+          }
+        },
+        "winetricks": { "$ref": "#/$defs/verbs" },
+        "registry": { "$ref": "#/$defs/registry_edit" },
+        "dll_override": { "$ref": "#/$defs/dll_overrides" },
+        "copy": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["from", "to"],
+          "properties": {
+            "from": { "$ref": "#/$defs/bottle_path" },
+            "to": { "$ref": "#/$defs/bottle_path" }
+          }
+        },
+        "run_windows": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["path"],
+          "properties": {
+            "path": { "$ref": "#/$defs/bottle_path" },
+            "args": { "$ref": "#/$defs/args" },
+            "wait": { "type": "boolean" }
+          }
+        },
+        "user_file": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "prompt", "to"],
+          "properties": {
+            "id": { "$ref": "#/$defs/slug" },
+            "prompt": { "type": "string", "maxLength": 200 },
+            "to": { "$ref": "#/$defs/bottle_path" }
+          }
+        },
+        "user_folder": {
+          "description": "Asks the player for a folder they own, such as a game already installed on their Mac, and places it on drive C:.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "prompt", "to"],
+          "properties": {
+            "id": { "$ref": "#/$defs/slug" },
+            "prompt": { "type": "string", "maxLength": 200 },
+            "to": {
+              "description": "A folder on drive C: below its root and outside C:\\windows, such as C:\\Games\\Example.",
+              "allOf": [
+                { "$ref": "#/$defs/bottle_path" },
+                { "pattern": "^(drive_c/|[Cc]:[\\\\/])[^\\\\/]" },
+                { "not": { "pattern": "^(drive_c|[Cc]:)[\\\\/]+[Ww][Ii][Nn][Dd][Oo][Ww][Ss]([\\\\/]|$)" } }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

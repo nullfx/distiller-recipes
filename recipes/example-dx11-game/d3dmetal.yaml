@@ -1,0 +1,56 @@
+# EXAMPLE RECIPE. It shows the format; the game and its settings are illustrative and untested.
+# Delete the example-* folders before you publish the repository.
+schema: 1
+id: d3dmetal
+name: D3DMetal, default settings
+authors: [distiller-maintainers]
+notes: >
+  A DirectX 11 game installed from an installer the player already owns.
+  Shows user_file, run_windows, winetricks, registry and two hardware overlays.
+
+game:
+  title: Example DX11 Game
+  slug: example-dx11-game
+  publisher: Example Studio
+
+stack:
+  runner: { family: crossover, min_version: "24.0" }
+  graphics: d3dmetal
+  sync: msync
+
+prefix:
+  windows: win10
+  retina: true
+  winetricks: [vcrun2022, d3dcompiler_47]
+  dll_overrides: { xinput1_3: builtin }
+  registry:
+    - key: 'HKCU\Software\Wine\Mac Driver'
+      values:
+        CaptureDisplaysForFullscreen: "y"
+
+install:
+  - user_file:
+      id: installer
+      prompt: Choose the game's Windows installer (setup.exe)
+      to: cache/setup.exe
+  - run_windows:
+      path: cache/setup.exe
+      args: ["/S"]
+      wait: true
+
+env:
+  MTL_HUD_ENABLED: "0"
+
+launch:
+  exe: 'C:\Games\Example DX11 Game\Game.exe'
+  args: ["-windowed"]
+
+overlays:
+  - when: { memory_gb: "<16" }
+    note: Medium textures on Macs with less than 16 GB of memory
+    args: ["-windowed", "-textures=medium"]
+  - when: { chip_family: M1 }
+    note: Uses DXMT capped at 30 FPS on M1 Macs
+    stack: { graphics: dxmt }
+    env:
+      DXMT_CONFIG: "d3d11.preferredMaxFrameRate=30;"
