@@ -1,0 +1,15 @@
+# Guild Wars 2. Added from Distiller.
+schema: 1
+slug: guild-wars-2
+title: Guild Wars 2
+publisher: Arena Net
+developer: Arena Net  / NCSoft
+genres:
+- mmo
+description: "Guild Wars 2 is an online role-playing game with fast-paced action combat,
+  a rich and detailed universe of stories, awe-inspiring landscapes to explore, two
+  challenging player vs. player modes\u2014and no subscription fees!"
+website: https://guildwars2.com
+installer:
+  url: https://cloudfront.guildwars2.com/client/branches/Gw2Setup-64.exe
+release_year: 2012

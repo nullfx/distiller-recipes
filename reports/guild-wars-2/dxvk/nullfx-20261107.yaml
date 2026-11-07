@@ -1,0 +1,17 @@
+schema: 1
+game: guild-wars-2
+recipe: dxvk
+tier: platinum
+hardware:
+  chip: Apple M3 Pro
+  macos: '27.2'
+  rosetta: true
+  chip_family: M3
+  chip_tier: Pro
+  gpu_cores: 18
+  memory_gb: 36
+components:
+  wine: wine-staging@11.21
+  graphics: dxvk-macos@1.10.3-20230507-repack
+date: '2026-11-07'
+fps_avg: 60
