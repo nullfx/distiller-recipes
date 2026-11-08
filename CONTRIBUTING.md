@@ -16,6 +16,12 @@ The easiest way: in Distiller choose **Create Recipe…**, test the game, then *
 4. Run `python3 scripts/build_index.py --check`.
 5. Open a pull request.
 
+## Pictures
+
+Each game can have an icon, `media/<game-slug>/icon.png` (a square PNG, 32–256 pixels, at most 256 KB), and each recipe up to three screenshots, `media/<game-slug>/<recipe-id>/1.jpg` to `3.jpg` (JPEGs 320–1600 pixels wide, at most 600 KB each; numbered from 1 without gaps; 1 is the cover). The catalogue and the app's Community tab show them. Distiller makes them during the community check: it reads the icon from the installed game's program, and while the game runs a small panel (or ⌃⌥⌘S from inside the game) captures its window whenever it shows something worth sharing (macOS asks once for Screen Recording permission). In the Submit window you pick up to three captures and the cover, and can leave the icon out. A game's icon is added with its first recipe and kept after that; a recipe's screenshots are replaced when the recipe is revised.
+
+Pictures show the publisher's artwork. They're here only to identify the game, they stay the publisher's property, and they aren't covered by this repository's MIT license. Only submit screenshots you captured yourself, of the game itself, with nothing personal on screen (account names, chat). No artwork copied from websites or stores.
+
 To improve someone else's recipe without replacing it, make a fork: a new file with a new `id` and `forked_from: <game-slug>/<recipe-id>`.
 
 ## Rules
@@ -34,4 +40,4 @@ Beyond what the schema can check:
 - **Wine is not a sandbox.** Windows programs run with the player's permissions. Only reference installers and patches from sources you trust.
 - **Hardware overlays should come from evidence.** Note which Mac you tested an overlay on.
 
-Contributions are licensed under this repository's MIT license.
+Contributions are licensed under this repository's MIT license, except pictures in `media/` (see above).
