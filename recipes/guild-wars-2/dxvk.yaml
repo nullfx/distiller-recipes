@@ -1,0 +1,39 @@
+# Guild Wars 2: Guild Wars 2. Submitted from Distiller.
+schema: 1
+id: dxvk
+name: Guild Wars 2
+authors:
+- nullfx
+game:
+  title: Guild Wars 2
+  slug: guild-wars-2
+  publisher: Arena Net
+  installer:
+    url: https://cloudfront.guildwars2.com/client/branches/Gw2Setup-64.exe
+stack:
+  runner:
+    family: winehq
+    min_version: '11.0'
+  graphics: dxvk
+  sync: msync
+prefix:
+  windows: win11
+  retina: true
+  winetricks:
+  - corefonts
+install:
+- download:
+    url: https://cloudfront.guildwars2.com/client/branches/Gw2Setup-64.exe
+    sha256: 6ff33600c3bb29041d78b4050e0ba8e1d58520236d79a8e382373f9e80746539
+    to: cache/Gw2Setup-64.exe
+- run_windows:
+    path: cache/Gw2Setup-64.exe
+    wait: true
+env:
+  DXVK_ASYNC: '1'
+  WINEMSYNC_QLIMIT: '50'
+launch:
+  exe: C:\Program Files\Guild Wars 2\Gw2-64.exe
+  args:
+  - -mapLoadinfo
+  - -ignorecoherentgpucrash
