@@ -1,6 +1,6 @@
 # distiller-recipes
 
-Community recipes and compatibility reports for [Distiller](https://github.com/YOUR-GITHUB-USER/distiller), a Wine launcher for Windows games on Apple silicon Macs.
+Community recipes and compatibility reports for [Distiller](https://github.com/nullfx/distiller), a Wine launcher for Windows games on Apple silicon Macs.
 
 A **recipe** says how to install and run one game: which Wine build and graphics layer, which winetricks, registry settings and launch options, and how to adjust them for different Macs. A **report** says how a recipe ran on one Mac. The Distiller app downloads `index.json`, which this repository builds from both, and ranks recipes by how they ran on Macs like yours.
 
