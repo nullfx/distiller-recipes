@@ -1,0 +1,15 @@
+# Guild Wars. Added from Distiller.
+schema: 1
+slug: guild-wars
+title: Guild Wars
+publisher: ArenaNet
+developer: ArenaNet / NCSoft
+genres:
+- mmo
+- rpg
+description: Guild Wars is a fantasy online RPG where players explore Tyria, complete
+  campaigns, customize heroes with skills, and battle cooperatively or competitively.
+website: https://guildwars.com
+installer:
+  url: https://cloudfront.guildwars2.com/client/GwSetup.exe
+release_year: 2005

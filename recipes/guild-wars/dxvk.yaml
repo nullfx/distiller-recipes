@@ -1,0 +1,34 @@
+# Guild Wars: dxvk. Submitted from Distiller.
+schema: 1
+id: dxvk
+authors:
+- nullfx
+game:
+  title: Guild Wars
+  slug: guild-wars
+  installer:
+    url: https://cloudfront.guildwars2.com/client/GwSetup.exe
+stack:
+  runner:
+    family: winehq
+    min_version: '11.0'
+  graphics: dxvk
+  sync: msync
+prefix:
+  windows: win10
+  retina: true
+  winetricks:
+  - openal
+  - d3dx9
+install:
+- download:
+    url: https://cloudfront.guildwars2.com/client/GwSetup.exe
+    sha256: 9152740c834eef57db881b51b46149e0bedebc65deef0900050abd0c41ce1c4b
+    to: cache/GwSetup.exe
+- run_windows:
+    path: cache/GwSetup.exe
+    wait: true
+env:
+  DXVK_ASYNC: '1'
+launch:
+  exe: C:\Program Files (x86)\Guild Wars\Gw.exe
