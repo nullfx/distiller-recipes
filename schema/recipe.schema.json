@@ -6,8 +6,16 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "id", "game", "stack"],
+  "if": { "properties": { "schema": { "const": 1 } } },
+  "then": {
+    "description": "Schema 1 recipes can't use publisher signatures, so versions of Distiller that only read schema 1 never meet them.",
+    "properties": {
+      "game": { "properties": { "installer": { "not": { "required": ["updates"] } } } },
+      "install": { "items": { "not": { "required": ["download"], "properties": { "download": { "required": ["signer"] } } } } }
+    }
+  },
   "properties": {
-    "schema": { "const": 1 },
+    "schema": { "enum": [1, 2], "description": "1, or 2 when a download is verified by its publisher's signature (signer, game.installer.updates). Older versions of Distiller read only 1." },
     "id": { "$ref": "#/$defs/slug", "description": "Unique within the game; also the file name." },
     "name": { "type": "string", "maxLength": 80, "description": "A short label, such as 'D3DMetal, high settings'." },
     "forked_from": {
@@ -34,6 +42,7 @@
           "properties": {
             "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
             "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer; url is the file itself. Optional." },
+            "updates": { "type": "boolean", "description": "The installer changes with every update (a game launcher's, for example), so shared recipes check its publisher's signature instead of a checksum. Schema 2." },
             "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
           }
         }
@@ -211,10 +220,12 @@
         "download": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["url", "sha256", "to"],
+          "required": ["url", "to"],
+          "oneOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
           "properties": {
             "url": { "type": "string", "pattern": "^https://", "maxLength": 1000 },
             "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+            "signer": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^\\S(.*\\S)?$", "description": "The publisher named in the installer's Authenticode signature (its code-signing certificate's common name), for installers that change with every update. Schema 2." },
             "to": { "$ref": "#/$defs/bottle_path" }
           }
         },
