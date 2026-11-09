@@ -40,11 +40,11 @@
     "installer": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["url"],
-      "description": "The publisher's official, publicly downloadable installer. Recipes' game.installer must match it.",
+      "anyOf": [{ "required": ["url"] }, { "required": ["page"] }],
+      "description": "The publisher's official, publicly downloadable installer: a direct link (url), its download page (page), or both. Recipes' game.installer must match it.",
       "properties": {
-        "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
-        "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer; url is the file itself. Optional." },
+        "url": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The installer file itself, a link that works on its own." },
+        "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer. With no url, players download it there themselves (recipes need schema 2)." },
         "updates": { "type": "boolean", "description": "The installer changes with every update (a game launcher's, for example), so shared recipes check its publisher's signature instead of a checksum. Schema 2." },
         "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
       }

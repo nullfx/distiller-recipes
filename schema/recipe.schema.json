@@ -8,14 +8,23 @@
   "required": ["schema", "id", "game", "stack"],
   "if": { "properties": { "schema": { "const": 1 } } },
   "then": {
-    "description": "Schema 1 recipes can't use publisher signatures, so versions of Distiller that only read schema 1 never meet them.",
+    "description": "Schema 1 recipes can't use publisher signatures or downloads from a publisher's page, so versions of Distiller that only read schema 1 never meet them.",
     "properties": {
-      "game": { "properties": { "installer": { "not": { "required": ["updates"] } } } },
-      "install": { "items": { "not": { "required": ["download"], "properties": { "download": { "required": ["signer"] } } } } }
+      "game": { "properties": { "installer": { "required": ["url"], "not": { "required": ["updates"] } } } },
+      "install": {
+        "items": {
+          "not": {
+            "anyOf": [
+              { "required": ["download"], "properties": { "download": { "required": ["signer"] } } },
+              { "required": ["user_download"] }
+            ]
+          }
+        }
+      }
     }
   },
   "properties": {
-    "schema": { "enum": [1, 2], "description": "1, or 2 when a download is verified by its publisher's signature (signer, game.installer.updates). Older versions of Distiller read only 1." },
+    "schema": { "enum": [1, 2], "description": "1, or 2 when a download is verified by its publisher's signature (signer, game.installer.updates) or downloaded by the player from the publisher's page (user_download, or game.installer with only a page). Older versions of Distiller read only 1." },
     "id": { "$ref": "#/$defs/slug", "description": "Unique within the game; also the file name." },
     "name": { "type": "string", "maxLength": 80, "description": "A short label, such as 'D3DMetal, high settings'." },
     "forked_from": {
@@ -37,11 +46,11 @@
         "installer": {
           "type": "object",
           "additionalProperties": false,
-          "required": ["url"],
-          "description": "The publisher's official, publicly downloadable installer. Shared recipes install from it; Distiller's community check proves that works before submitting.",
+          "anyOf": [{ "required": ["url"] }, { "required": ["page"] }],
+          "description": "The publisher's official, publicly downloadable installer. Shared recipes install from it; Distiller's community check proves that works before submitting. It has a direct link (url), the publisher's download page (page), or both.",
           "properties": {
-            "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
-            "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer; url is the file itself. Optional." },
+            "url": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The installer file itself, a link that works on its own (no cookies or expiring signature)." },
+            "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer. With no url (schema 2), players download the installer there themselves, in Distiller's browser." },
             "updates": { "type": "boolean", "description": "The installer changes with every update (a game launcher's, for example), so shared recipes check its publisher's signature instead of a checksum. Schema 2." },
             "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
           }
@@ -267,6 +276,21 @@
           "properties": {
             "id": { "$ref": "#/$defs/slug" },
             "prompt": { "type": "string", "maxLength": 200 },
+            "to": { "$ref": "#/$defs/bottle_path" }
+          }
+        },
+        "user_download": {
+          "description": "The player downloads a file from the publisher's page themselves, in Distiller's browser (or their own, from the command line), for installers with no link that works on its own. Distiller checks it like a download. Schema 2.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["id", "prompt", "page", "to"],
+          "oneOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
+          "properties": {
+            "id": { "$ref": "#/$defs/slug" },
+            "prompt": { "type": "string", "maxLength": 200 },
+            "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "maxLength": 1000 },
+            "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
+            "signer": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^\\S(.*\\S)?$" },
             "to": { "$ref": "#/$defs/bottle_path" }
           }
         },

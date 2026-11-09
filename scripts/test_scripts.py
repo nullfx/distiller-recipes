@@ -86,6 +86,36 @@ class RecipeSchemaTests(unittest.TestCase):
                 self.assertTrue(recipe_errors(signed_recipe(2, step=step)))
         self.assertTrue(recipe_errors(with_change(lambda d: d.update({"schema": 3}))))
 
+    def test_installers_downloaded_from_their_page_need_schema_2(self):
+        page = "https://www.example.com/download"
+        step = {"user_download": {"id": "installer", "prompt": "Download the installer.", "page": page, "sha256": "0" * 64, "to": "cache/Setup.exe"}}
+
+        def page_recipe(schema, step=step, installer=None):
+            def change(d):
+                d["schema"] = schema
+                d["game"]["installer"] = installer if installer is not None else {"page": page}
+                d["install"] = [step, {"run_windows": {"path": "cache/Setup.exe"}}]
+            return with_change(change)
+
+        self.assertEqual(recipe_errors(page_recipe(2)), [])
+        self.assertTrue(recipe_errors(page_recipe(1)), "Schema 1 can't download from a page")
+        self.assertTrue(recipe_errors(page_recipe(1, step={"winetricks": ["xact"]})), "or have an installer with only a page")
+        self.assertTrue(recipe_errors(page_recipe(2, installer={})), "An installer needs a url or a page")
+        self.assertTrue(recipe_errors(page_recipe(2, installer={"page": "http://www.example.com/download"})))
+        signed = {"user_download": {**step["user_download"], "signer": "Example Publisher, Inc."}}
+        del signed["user_download"]["sha256"]
+        self.assertEqual(recipe_errors(page_recipe(2, step=signed)), [])
+        for bad in [
+            {**step["user_download"], "signer": "Example Publisher, Inc."},          # both
+            {k: v for k, v in step["user_download"].items() if k != "sha256"},     # neither
+            {**step["user_download"], "page": "http://www.example.com/download"},
+            {**step["user_download"], "page": "file:///Users/someone/Setup.exe"},
+            {**step["user_download"], "to": "../Setup.exe"},
+            {**step["user_download"], "id": "Not A Slug"},
+        ]:
+            with self.subTest(step=bad):
+                self.assertTrue(recipe_errors(page_recipe(2, step={"user_download": bad})))
+
     def test_rejects_shell_steps_and_unknown_verbs(self):
         self.assertTrue(recipe_errors(with_change(lambda d: d["install"].append({"shell": "rm -rf ~"}))))
         self.assertTrue(recipe_errors(with_change(lambda d: d["prefix"].update({"winetricks": ["sandbox"]}))))
@@ -216,6 +246,33 @@ class GameFileTests(unittest.TestCase):
         self.game["installer"]["page"] = "http://www.example.com/download"
         errors, _ = self.collect()
         self.assertTrue(errors, "Only https pages")
+
+    def test_installer_with_only_a_page_stays_out_of_older_apps_way(self):
+        page = "https://www.example.com/download"
+        self.recipe["schema"] = 2
+        self.recipe["game"]["installer"] = {"page": page}
+        self.recipe["install"] = [{"user_download": {"id": "installer", "prompt": "Download it.", "page": page, "sha256": "0" * 64, "to": "cache/Setup.exe"}},
+                                  {"run_windows": {"path": "cache/Setup.exe"}}]
+        self.game["installer"] = {"page": page, "updates": True}
+        errors, (games, recipes, reports) = self.collect()
+        self.assertEqual(errors, [])
+        with mock.patch.object(build_index, "ROOT", self.root):
+            index, details = build_index.build_index(games, recipes, reports, "https://github.com/nullfx/distiller-recipes")
+        entry = index["games"][0]
+        self.assertNotIn("installer", entry, "Distiller 1.0 can't read an installer without a url")
+        self.assertEqual(entry["download_page"], page)
+        self.assertTrue(entry["download_page_updates"])
+        self.assertNotIn("installer", details["real-game"])
+
+    def test_user_downloads_only_from_the_games_download_page(self):
+        page = "https://www.example.com/download"
+        self.recipe["schema"] = 2
+        self.recipe["game"]["installer"] = {"page": "https://mirror.example.com/files"}
+        self.recipe["install"] = [{"user_download": {"id": "installer", "prompt": "Download it.", "page": "https://mirror.example.com/files", "sha256": "0" * 64, "to": "cache/Setup.exe"}}]
+        self.game["installer"] = {"page": page}
+        errors, _ = self.collect()
+        self.assertTrue(any("isn't the official download page" in e for e in errors), errors)
+        self.assertTrue(any("user_download from https://mirror.example.com/files" in e for e in errors), errors)
 
     def test_every_recipe_needs_a_game_file(self):
         self.game = None
