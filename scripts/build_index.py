@@ -219,9 +219,10 @@ def collect(errors: list[str]):
 
 
 def check_links(games: dict[str, dict], errors: list[str]) -> None:
-    """Checks that each game's official installer and website still answer (HEAD, then a 1-byte GET)."""
+    """Checks that each game's official installer, its download page and website still answer (HEAD, then a 1-byte GET)."""
     for slug, game in sorted(games.items()):
-        for what, url in [("installer.url", game.get("installer", {}).get("url")), ("website", game.get("website"))]:
+        installer = game.get("installer", {})
+        for what, url in [("installer.url", installer.get("url")), ("installer.page", installer.get("page")), ("website", game.get("website"))]:
             if not url:
                 continue
             status = None
