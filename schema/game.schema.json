@@ -45,6 +45,7 @@
       "properties": {
         "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
         "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer; url is the file itself. Optional." },
+        "updates": { "type": "boolean", "description": "The installer changes with every update (a game launcher's, for example), so shared recipes check its publisher's signature instead of a checksum. Schema 2." },
         "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
       }
     }

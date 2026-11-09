@@ -64,6 +64,28 @@ class RecipeSchemaTests(unittest.TestCase):
             with self.subTest(step=step):
                 self.assertTrue(recipe_errors(with_change(lambda d: d["install"].append(step))))
 
+    def test_installers_that_update_are_checked_by_signature_in_schema_2(self):
+        url = "https://downloads.example.com/getInstaller?os=win"
+        signed = {"download": {"url": url, "signer": "Example Publisher, Inc.", "to": "cache/Setup.exe"}}
+
+        def signed_recipe(schema, step=signed, updates=True):
+            def change(d):
+                d["schema"] = schema
+                d["game"]["installer"] = {"url": url, **({"updates": True} if updates else {})}
+                d["install"] = [step]
+            return with_change(change)
+
+        self.assertEqual(recipe_errors(signed_recipe(2)), [])
+        self.assertTrue(recipe_errors(signed_recipe(1)), "Schema 1 can't use a signer")
+        self.assertTrue(recipe_errors(signed_recipe(1, step={"download": {"url": url, "sha256": "0" * 64, "to": "cache/Setup.exe"}})),
+                        "or an installer that updates")
+        self.assertEqual(recipe_errors(signed_recipe(1, step={"download": {"url": url, "sha256": "0" * 64, "to": "cache/Setup.exe"}}, updates=False)), [])
+        both = {"download": {"url": url, "sha256": "0" * 64, "signer": "Example Publisher, Inc.", "to": "cache/Setup.exe"}}
+        for step in [both, {"download": {"url": url, "signer": " Padded", "to": "cache/Setup.exe"}}, {"download": {"url": url, "signer": "", "to": "cache/Setup.exe"}}]:
+            with self.subTest(step=step):
+                self.assertTrue(recipe_errors(signed_recipe(2, step=step)))
+        self.assertTrue(recipe_errors(with_change(lambda d: d.update({"schema": 3}))))
+
     def test_rejects_shell_steps_and_unknown_verbs(self):
         self.assertTrue(recipe_errors(with_change(lambda d: d["install"].append({"shell": "rm -rf ~"}))))
         self.assertTrue(recipe_errors(with_change(lambda d: d["prefix"].update({"winetricks": ["sandbox"]}))))
