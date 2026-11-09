@@ -181,10 +181,17 @@ def collect(errors: list[str]):
         else:
             if data["game"]["title"] != game["title"]:
                 errors.append(f"{label}: game.title {data['game']['title']!r} differs from games/{slug}.yaml ({game['title']!r})")
-            recipe_installer = data["game"].get("installer", {}).get("url")
-            game_installer = game.get("installer", {}).get("url")
-            if recipe_installer and recipe_installer != game_installer:
+            recipe_installer = data["game"].get("installer", {})
+            game_installer = game.get("installer", {})
+            if recipe_installer.get("url") and recipe_installer.get("url") != game_installer.get("url"):
                 errors.append(f"{label}: game.installer.url isn't the official installer in games/{slug}.yaml")
+            if recipe_installer and "url" not in recipe_installer and recipe_installer.get("page") != game_installer.get("page"):
+                errors.append(f"{label}: game.installer.page isn't the official download page in games/{slug}.yaml")
+            # Players download files only from the game's own download page.
+            for step in data.get("install") or []:
+                page = (step.get("user_download") or {}).get("page")
+                if page and page != game_installer.get("page"):
+                    errors.append(f"{label}: user_download from {page}, which isn't the game's official download page (installer.page in games/{slug}.yaml)")
         recipes[(slug, recipe_id)] = (path, data)
 
     for (slug, recipe_id), (path, data) in recipes.items():
@@ -274,6 +281,14 @@ def build_index(games_info: dict[str, dict], recipes, reports, repository: str, 
         if game is None:
             game = {"slug": slug, "title": info["title"]}
             game.update({key: info[key].strip() if isinstance(info[key], str) else info[key] for key in GAME_FIELDS if key in info})
+            # Distiller 1.0 reads the index only if every installer has a url, so an installer
+            # with only a download page (schema 2) is published as download_page instead.
+            installer = game.get("installer")
+            if installer is not None and "url" not in installer:
+                del game["installer"]
+                game["download_page"] = installer["page"]
+                if installer.get("updates"):
+                    game["download_page_updates"] = True
             game["detail"] = f"games/{slug}.json"
             if media.get(slug, {}).get("icon"):
                 game["icon"] = media[slug]["icon"]
