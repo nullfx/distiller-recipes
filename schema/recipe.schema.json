@@ -33,6 +33,7 @@
           "description": "The publisher's official, publicly downloadable installer. Shared recipes install from it; Distiller's community check proves that works before submitting.",
           "properties": {
             "url": { "type": "string", "pattern": "^https://[^/\\s]+/" },
+            "page": { "type": "string", "pattern": "^https://[^/\\s]+/", "description": "The publisher's download page, where a player can always get the installer; url is the file itself. Optional." },
             "args": { "type": "array", "items": { "type": "string", "maxLength": 200 }, "maxItems": 20 }
           }
         }

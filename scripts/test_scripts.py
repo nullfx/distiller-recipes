@@ -181,6 +181,20 @@ class GameFileTests(unittest.TestCase):
         self.assertEqual(detail["recipes"][0]["recipe"]["id"], "wined3d")
         self.assertEqual(detail["recipes"][0]["reports"], [])
 
+    def test_installer_may_name_its_download_page(self):
+        page = "https://www.example.com/download"
+        self.recipe["game"]["installer"]["page"] = page
+        self.game["installer"]["page"] = page
+        errors, (games, recipes, reports) = self.collect()
+        self.assertEqual(errors, [])
+        with mock.patch.object(build_index, "ROOT", self.root):
+            index, _ = build_index.build_index(games, recipes, reports, "https://github.com/nullfx/distiller-recipes")
+        self.assertEqual(index["games"][0]["installer"]["page"], page, "The page reaches the catalogue")
+
+        self.game["installer"]["page"] = "http://www.example.com/download"
+        errors, _ = self.collect()
+        self.assertTrue(errors, "Only https pages")
+
     def test_every_recipe_needs_a_game_file(self):
         self.game = None
         errors, _ = self.collect()
