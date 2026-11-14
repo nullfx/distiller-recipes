@@ -84,7 +84,31 @@ class RecipeSchemaTests(unittest.TestCase):
         for step in [both, {"download": {"url": url, "signer": " Padded", "to": "cache/Setup.exe"}}, {"download": {"url": url, "signer": "", "to": "cache/Setup.exe"}}]:
             with self.subTest(step=step):
                 self.assertTrue(recipe_errors(signed_recipe(2, step=step)))
-        self.assertTrue(recipe_errors(with_change(lambda d: d.update({"schema": 3}))))
+        self.assertTrue(recipe_errors(with_change(lambda d: d.update({"schema": 4}))))
+
+    def test_a_checksum_and_a_signer_together_need_schema_3(self):
+        url = "https://downloads.example.com/SteamSetup.exe"
+        page = "https://www.example.com/download"
+        both = {"download": {"url": url, "sha256": "0" * 64, "signer": "Example Publisher, Inc.", "to": "cache/Setup.exe"}}
+        page_both = {"user_download": {"id": "installer", "prompt": "Download it.", "page": page, "sha256": "0" * 64,
+                                       "signer": "Example Publisher, Inc.", "to": "cache/Setup.exe"}}
+
+        def recipe(schema, step):
+            def change(d):
+                d["schema"] = schema
+                d["game"]["installer"] = {"url": url}
+                d["install"] = [step]
+            return with_change(change)
+
+        for step in [both, page_both]:
+            with self.subTest(step=step):
+                self.assertEqual(recipe_errors(recipe(3, step)), [])
+                self.assertTrue(recipe_errors(recipe(2, step)), "Distiller 1.1 reads schema 2 and refuses both")
+                self.assertTrue(recipe_errors(recipe(1, step)))
+        # Schema 3 still needs one of them.
+        neither = {"download": {"url": url, "to": "cache/Setup.exe"}}
+        self.assertTrue(recipe_errors(recipe(3, neither)))
+        self.assertEqual(recipe_errors(recipe(3, {"download": {"url": url, "sha256": "0" * 64, "to": "cache/Setup.exe"}})), [])
 
     def test_installers_downloaded_from_their_page_need_schema_2(self):
         page = "https://www.example.com/download"

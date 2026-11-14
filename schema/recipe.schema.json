@@ -6,25 +6,47 @@
   "type": "object",
   "additionalProperties": false,
   "required": ["schema", "id", "game", "stack"],
-  "if": { "properties": { "schema": { "const": 1 } } },
-  "then": {
-    "description": "Schema 1 recipes can't use publisher signatures or downloads from a publisher's page, so versions of Distiller that only read schema 1 never meet them.",
-    "properties": {
-      "game": { "properties": { "installer": { "required": ["url"], "not": { "required": ["updates"] } } } },
-      "install": {
-        "items": {
-          "not": {
-            "anyOf": [
-              { "required": ["download"], "properties": { "download": { "required": ["signer"] } } },
-              { "required": ["user_download"] }
-            ]
+  "allOf": [
+    {
+      "if": { "properties": { "schema": { "const": 1 } } },
+      "then": {
+        "description": "Schema 1 recipes can't use publisher signatures or downloads from a publisher's page, so versions of Distiller that only read schema 1 never meet them.",
+        "properties": {
+          "game": { "properties": { "installer": { "required": ["url"], "not": { "required": ["updates"] } } } },
+          "install": {
+            "items": {
+              "not": {
+                "anyOf": [
+                  { "required": ["download"], "properties": { "download": { "required": ["signer"] } } },
+                  { "required": ["user_download"] }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": { "properties": { "schema": { "const": 2 } } },
+      "then": {
+        "description": "Schema 2 downloads have a sha256 or a signer, not both: versions of Distiller that read only up to schema 2 refuse both.",
+        "properties": {
+          "install": {
+            "items": {
+              "not": {
+                "anyOf": [
+                  { "required": ["download"], "properties": { "download": { "required": ["sha256", "signer"] } } },
+                  { "required": ["user_download"], "properties": { "user_download": { "required": ["sha256", "signer"] } } }
+                ]
+              }
+            }
           }
         }
       }
     }
-  },
+  ],
   "properties": {
-    "schema": { "enum": [1, 2], "description": "1, or 2 when a download is verified by its publisher's signature (signer, game.installer.updates) or downloaded by the player from the publisher's page (user_download, or game.installer with only a page). Older versions of Distiller read only 1." },
+    "schema": { "enum": [1, 2, 3], "description": "1; 2 when a download is verified by its publisher's signature (signer, game.installer.updates) or downloaded by the player from the publisher's page (user_download, or game.installer with only a page); 3 when a download has both a sha256 and a signer (either passing is enough). Older versions of Distiller read only the lower numbers." },
     "id": { "$ref": "#/$defs/slug", "description": "Unique within the game; also the file name." },
     "name": { "type": "string", "maxLength": 80, "description": "A short label, such as 'D3DMetal, high settings'." },
     "forked_from": {
@@ -230,11 +252,12 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["url", "to"],
-          "oneOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
+          "anyOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
+          "description": "Verified by its sha256, its publisher's signature (signer), or both: with both, either passing is enough (schema 3), so the recipe keeps working when the publisher ships a new installer.",
           "properties": {
             "url": { "type": "string", "pattern": "^https://", "maxLength": 1000 },
             "sha256": { "type": "string", "pattern": "^[0-9a-fA-F]{64}$" },
-            "signer": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^\\S(.*\\S)?$", "description": "The publisher named in the installer's Authenticode signature (its code-signing certificate's common name), for installers that change with every update. Schema 2." },
+            "signer": { "type": "string", "minLength": 1, "maxLength": 200, "pattern": "^\\S(.*\\S)?$", "description": "The publisher named in the installer's Authenticode signature (its code-signing certificate's common name; checked as of the signature's timestamp). Schema 2 alone, schema 3 with a sha256." },
             "to": { "$ref": "#/$defs/bottle_path" }
           }
         },
@@ -284,7 +307,7 @@
           "type": "object",
           "additionalProperties": false,
           "required": ["id", "prompt", "page", "to"],
-          "oneOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
+          "anyOf": [{ "required": ["sha256"] }, { "required": ["signer"] }],
           "properties": {
             "id": { "$ref": "#/$defs/slug" },
             "prompt": { "type": "string", "maxLength": 200 },
