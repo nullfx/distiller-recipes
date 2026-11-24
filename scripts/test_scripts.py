@@ -190,6 +190,103 @@ class ContributionScopeTests(unittest.TestCase):
                 self.assertTrue(errors)
 
 
+class SourceTests(unittest.TestCase):
+    """components/<kind>/<tag>.yaml: where the Wine builds and graphics layers recipes name come from."""
+
+    SIKARUGIR = {
+        "schema": 1, "tag": "sikarugir", "kind": "wine", "name": "Sikarugir Wine", "publisher": "Sikarugir",
+        "homepage": "https://github.com/Sikarugir-App/Engines", "license": "LGPL-2.1-or-later",
+        "get": {"github_release": {"repository": "Sikarugir-App/Engines", "asset": r"^WS12WineSikarugir([0-9][0-9._]*)\.tar\.xz$"}},
+        "provides": {"family": "sikarugir", "arch": "x86_64"},
+        "libraries_from": "wine-staging",
+    }
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name)
+        (self.root / "schema").mkdir()
+        (self.root / "schema" / "component.schema.json").write_text((ROOT / "schema/component.schema.json").read_text())
+        for path in ROOT.glob("components/*/*.yaml"):
+            target = self.root / path.relative_to(ROOT)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(path.read_text())
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def write(self, relative: str, data) -> None:
+        path = self.root / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(yaml.safe_dump(data, sort_keys=False))
+
+    def collect(self) -> tuple[dict, list[str]]:
+        errors: list[str] = []
+        with mock.patch.object(build_index, "ROOT", self.root), mock.patch("common.ROOT", self.root):
+            components = build_index.collect_components(errors)
+        return components, errors
+
+    def test_repository_sources_are_valid(self):
+        components, errors = self.collect()
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(components), ["dxmt", "dxvk-macos", "wine-devel", "wine-staging"])
+        self.assertEqual(build_index.wine_families(components), {"winehq"})
+
+    def test_a_new_source(self):
+        self.write("components/wine/sikarugir.yaml", self.SIKARUGIR)
+        components, errors = self.collect()
+        self.assertEqual(errors, [])
+        self.assertIn("sikarugir", build_index.wine_families(components))
+        index = build_index.components_index(components, "https://github.com/nullfx/distiller-recipes")
+        self.assertEqual([c["tag"] for c in index["components"]], ["dxmt", "dxvk-macos", "sikarugir", "wine-devel", "wine-staging"])
+
+    def test_rejects_broken_sources(self):
+        cases = {
+            "file name isn't the tag": ("components/wine/other.yaml", {}),
+            "wrong folder": ("components/graphics/sikarugir.yaml", {}),
+            "http homepage": ("components/wine/sikarugir.yaml", {"homepage": "http://example.com"}),
+            "no version group": ("components/wine/sikarugir.yaml", {"get": {"github_release": {"repository": "a/b", "asset": "^engine\\.tar\\.xz$"}}}),
+            "not a repository": ("components/wine/sikarugir.yaml", {"get": {"github_release": {"repository": "https://github.com/a/b", "asset": "^e([0-9]+)$"}}}),
+            "libraries from nowhere": ("components/wine/sikarugir.yaml", {"libraries_from": "nothing"}),
+            "libraries from itself": ("components/wine/sikarugir.yaml", {"libraries_from": "sikarugir"}),
+            "wine with a backend": ("components/wine/sikarugir.yaml", {"provides": {"family": "sikarugir", "backend": "dxvk"}}),
+            "unknown field": ("components/wine/sikarugir.yaml", {"install_script": "curl | sh"}),
+            "no licence": ("components/wine/sikarugir.yaml", {"license": ""}),
+        }
+        for name, (path, change) in cases.items():
+            with self.subTest(name):
+                (self.root / "components/wine/sikarugir.yaml").unlink(missing_ok=True)
+                (self.root / "components/graphics/sikarugir.yaml").unlink(missing_ok=True)
+                (self.root / "components/wine/other.yaml").unlink(missing_ok=True)
+                self.write(path, {**self.SIKARUGIR, **change})
+                _, errors = self.collect()
+                self.assertTrue(errors, name)
+
+    def test_real_recipes_need_a_source_for_their_family(self):
+        components, _ = self.collect()
+        recipe = copy.deepcopy(BASE)
+        recipe["stack"]["runner"]["family"] = "sikarugir"
+        errors: list[str] = []
+        build_index.check_recipe_sources({("my-game", "steam"): (ROOT / "recipes/my-game/steam.yaml", recipe)}, components, errors)
+        self.assertEqual(len(errors), 1)
+        self.assertIn("sikarugir", errors[0])
+        # Examples, "any" and families with a source are fine.
+        errors = []
+        build_index.check_recipe_sources({("example-dx11-game", "x"): (ROOT / "recipes/example-dx11-game/x.yaml", recipe)}, components, errors)
+        recipe["stack"]["runner"]["family"] = "winehq"
+        build_index.check_recipe_sources({("my-game", "steam"): (ROOT / "recipes/my-game/steam.yaml", recipe)}, components, errors)
+        self.assertEqual(errors, [])
+
+    def test_forks_may_add_sources_but_not_change_them(self):
+        errors, notices = check_pr.problems([("A", "components/wine/sikarugir.yaml")])
+        self.assertEqual(errors, [])
+        self.assertEqual(len(notices), 1)
+        for change in [("M", "components/wine/wine-staging.yaml"), ("D", "components/wine/wine-staging.yaml"),
+                       ("A", "components/tools/x.yaml"), ("A", "components/wine/Bad_Tag.yaml")]:
+            with self.subTest(change=change):
+                errors, _ = check_pr.problems([change])
+                self.assertTrue(errors)
+
+
 class IndexTests(unittest.TestCase):
     def test_hardware_key_matches_app_format(self):
         hardware = {"chip_family": "M3", "chip_tier": "Pro", "gpu_cores": 18, "memory_gb": 18, "macos": "27.1"}

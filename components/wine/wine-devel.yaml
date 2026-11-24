@@ -1,0 +1,15 @@
+schema: 1
+tag: wine-devel
+kind: wine
+name: Wine Devel
+summary: The latest WineHQ development release, built for macOS by Gcenx.
+publisher: Gcenx
+homepage: https://github.com/Gcenx/macOS_Wine_builds
+license: LGPL-2.1-or-later
+get:
+  github_release:
+    repository: Gcenx/macOS_Wine_builds
+    asset: '^wine-devel-([0-9][0-9.]*)-osx64\.tar\.xz$'
+provides:
+  family: winehq
+  arch: x86_64
