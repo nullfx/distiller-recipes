@@ -1,2 +1,5 @@
 # Every change needs the owner's review (the ruleset on main requires code-owner approval).
 * @nullfx
+# Sources are programs that run on players' Macs: always the owner's review.
+/components/ @nullfx
+/schema/component.schema.json @nullfx

@@ -13,10 +13,11 @@ A **recipe** says how to install and run one game: which Wine build and graphics
 | `reports/<game-slug>/<recipe-id>/<report-id>.yaml` | One compatibility report per file. |
 | `media/<game-slug>/icon.png` | The game's icon: a square PNG, 32–256 pixels, at most 256 KB. |
 | `media/<game-slug>/<recipe-id>/<1-3>.jpg` | Up to three screenshots from the recipe's community check, numbered from 1 (the cover): JPEGs 320–1600 pixels wide, at most 600 KB each. |
-| `schema/` | JSON Schemas for games, recipes and reports. |
+| `components/<wine\|graphics>/<tag>.yaml` | Sources: where each Wine build and graphics layer recipes name by tag comes from (`stack.runner.family` is a Wine source's family). Published as `dist/components.json`. |
+| `schema/` | JSON Schemas for games, recipes, reports and sources. |
 | `scripts/build_index.py` | Validates everything and writes `dist/index.json` (the catalogue), `dist/games/<slug>.json` (each game in full), `dist/examples.json` (the example games) and `dist/media/` (the listed games' pictures). |
 | `scripts/issue_to_report.py` | Turns a report issue into a report file. |
-| `scripts/check_pr.py` | Checks that a pull request from a fork only touches games, recipes and reports. |
+| `scripts/check_pr.py` | Checks that a pull request from a fork only touches games, recipes and reports, and only adds sources. |
 
 The `example-*` games show the format and are not real results. They stay in the repository as documentation and are always validated, but the published catalogue (`index.json`, what the app's Community view and the website list) leaves them out once there is a real game. They're published separately as `examples.json`. Until the first real game is merged, the catalogue lists the examples so there is something to show.
 

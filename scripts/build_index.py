@@ -20,6 +20,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import json
+import re
 import shutil
 import statistics
 import struct
@@ -225,6 +226,76 @@ def collect(errors: list[str]):
     return games, recipes, reports
 
 
+COMPONENT_KINDS = ("wine", "graphics")
+
+
+def collect_components(errors: list[str]) -> dict[str, dict]:
+    """Every source under components/<kind>/<tag>.yaml, by tag, checked against the schema and
+    against each other (file name is the tag, folder is the kind, tags are unique, a family is
+    provided once, libraries_from names another Wine source, the file pattern has a version group)."""
+    component_validator = validator("component.schema.json")
+    components: dict[str, dict] = {}
+    families: dict[str, str] = {}
+    for path in sorted(ROOT.glob("components/**/*")):
+        if path.is_dir():
+            continue
+        label = str(path.relative_to(ROOT))
+        parts = path.relative_to(ROOT).parts
+        if len(parts) != 3 or parts[1] not in COMPONENT_KINDS or path.suffix != ".yaml":
+            errors.append(f"{label}: sources go in components/wine/<tag>.yaml or components/graphics/<tag>.yaml")
+            continue
+        data = load_yaml(path)
+        found = schema_errors(component_validator, data, label)
+        errors.extend(found)
+        if found:
+            continue
+        if data["tag"] != path.stem:
+            errors.append(f"{label}: tag is {data['tag']!r} but the file is {path.name!r}")
+        if data["kind"] != parts[1]:
+            errors.append(f"{label}: kind is {data['kind']!r} but the file is in components/{parts[1]}/")
+        if data["tag"] in components:
+            errors.append(f"{label}: another source is already tagged {data['tag']!r}")
+        try:
+            if re.compile(data["get"]["github_release"]["asset"]).groups < 1:
+                errors.append(f"{label}: get.github_release.asset needs a group, in parentheses, around the version")
+        except re.error as error:
+            errors.append(f"{label}: get.github_release.asset isn't a valid regular expression ({error})")
+        if data["kind"] == "wine":
+            family = data["provides"].get("family", data["tag"])
+            # Several builds may share a family (wine-staging and wine-devel are both winehq).
+            families.setdefault(family, data["tag"])
+        components[data["tag"]] = data
+    for tag, data in components.items():
+        source = data.get("libraries_from")
+        if source is not None and (source == tag or components.get(source, {}).get("kind") != "wine"):
+            errors.append(f"components/{data['kind']}/{tag}.yaml: libraries_from must name another Wine source, not {source!r}")
+    return components
+
+
+def wine_families(components: dict[str, dict]) -> set[str]:
+    return {data["provides"].get("family", tag) for tag, data in components.items() if data["kind"] == "wine"}
+
+
+def check_recipe_sources(recipes, components: dict[str, dict], errors: list[str]) -> None:
+    """A recipe's Wine family must be one a source provides (or "any"), so Distiller knows where to
+    get it. The example recipes are exempt."""
+    families = wine_families(components)
+    for (slug, _), (path, data) in recipes.items():
+        family = data["stack"]["runner"]["family"]
+        if is_example(slug) or family == "any" or family in families:
+            continue
+        errors.append(f"{path.relative_to(ROOT)}: no source provides the Wine family {family!r}. "
+                      f"Add components/wine/<tag>.yaml for it in the same pull request (families with sources: {', '.join(sorted(families))}).")
+
+
+def components_index(components: dict[str, dict], repository: str) -> dict:
+    return {
+        "schema": 1,
+        "repository": repository,
+        "components": [components[tag] for tag in sorted(components, key=lambda tag: (components[tag]["kind"], tag))],
+    }
+
+
 def check_links(games: dict[str, dict], errors: list[str]) -> None:
     """Checks that each game's official installer, its download page and website still answer (HEAD, then a 1-byte GET)."""
     for slug, game in sorted(games.items()):
@@ -353,6 +424,8 @@ def main() -> int:
     errors: list[str] = []
     games, recipes, reports = collect(errors)
     media = collect_media(games, recipes, errors)
+    components = collect_components(errors)
+    check_recipe_sources(recipes, components, errors)
     if args.check_links and not errors:
         check_links(games, errors)
     if errors:
@@ -363,7 +436,7 @@ def main() -> int:
 
     report_count = sum(len(items) for items in reports.values())
     if args.check:
-        print(f"OK: {len(games)} games, {len(recipes)} recipes and {report_count} reports are valid.")
+        print(f"OK: {len(games)} games, {len(recipes)} recipes, {report_count} reports and {len(components)} sources are valid.")
         return 0
 
     catalogue, examples = split_examples(games, recipes, reports, args.include_examples)
@@ -375,6 +448,8 @@ def main() -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (out.parent / "examples.json").write_text(json.dumps(example_index, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    (out.parent / "components.json").write_text(
+        json.dumps(components_index(components, args.repository), indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     (out.parent / "games").mkdir(exist_ok=True)
     for slug, detail in details.items():
         (out.parent / "games" / f"{slug}.json").write_text(json.dumps(detail, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check that a pull request from a fork only adds or changes games, recipes and reports.
+"""Check that a pull request from a fork only adds or changes games, recipes and reports (and adds sources).
 
     python scripts/check_pr.py --base origin/main
 
@@ -22,6 +22,8 @@ REPORT = re.compile(r"^reports/[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}/[
 # A game's icon and a recipe's screenshots (up to three) from its community check.
 ICON = re.compile(r"^media/[a-z0-9][a-z0-9-]{1,63}/icon\.png$")
 SCREENSHOT = re.compile(r"^media/[a-z0-9][a-z0-9-]{1,63}/[a-z0-9][a-z0-9-]{1,63}/[1-3]\.jpg$")
+# A source for a Wine build or graphics layer that recipes name by tag.
+COMPONENT = re.compile(r"^components/(wine|graphics)/[a-z0-9][a-z0-9-]{1,39}\.yaml$")
 
 
 def problems(changes: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
@@ -30,9 +32,15 @@ def problems(changes: list[tuple[str, str]]) -> tuple[list[str], list[str]]:
     notices: list[str] = []
     for status, path in changes:
         kind = status[:1]
-        if not any(pattern.match(path) for pattern in (GAME, RECIPE, REPORT, ICON, SCREENSHOT)):
+        if not any(pattern.match(path) for pattern in (GAME, RECIPE, REPORT, ICON, SCREENSHOT, COMPONENT)):
             errors.append(f"{path}: contributions from forks may only change games/, recipes/ and reports/ YAML files, "
-                          "and add a game's media/<game>/icon.png or a recipe's media/<game>/<recipe>/<1-3>.jpg screenshots.")
+                          "add a game's media/<game>/icon.png or a recipe's media/<game>/<recipe>/<1-3>.jpg screenshots, "
+                          "and add a source as components/<wine|graphics>/<tag>.yaml.")
+        elif COMPONENT.match(path) and kind != "A":
+            errors.append(f"{path}: contributions from forks can only add sources; changing or removing one needs a maintainer.")
+        elif COMPONENT.match(path):
+            notices.append(f"{path}: a new source, a program that runs on players' Macs. Check the publisher and repository, "
+                           "the licence, that it's complete (or names libraries_from), and contains_d3dmetal.")
         elif kind == "D" and SCREENSHOT.match(path):
             notices.append(f"{path}: removes a screenshot (a revision that shares fewer).")
         elif kind == "D":

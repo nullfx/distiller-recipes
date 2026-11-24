@@ -1,0 +1,75 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/nullfx/distiller-recipes/schema/component.schema.json",
+  "title": "Distiller component source",
+  "description": "Where a Wine build or graphics layer that recipes name by tag comes from, how Distiller verifies and installs it, and what it provides. One file per tag: components/<kind>/<tag>.yaml. A source is a program that runs on players' Macs, so a maintainer reviews every change.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "tag", "kind", "name", "publisher", "homepage", "license", "get", "provides"],
+  "properties": {
+    "schema": { "const": 1 },
+    "tag": { "$ref": "#/$defs/tag", "description": "What recipes name: stack.runner.family for Wine builds (unless provides.family says otherwise)." },
+    "kind": { "enum": ["wine", "graphics"] },
+    "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+    "summary": { "type": "string", "maxLength": 300 },
+    "publisher": { "type": "string", "minLength": 1, "maxLength": 80, "description": "Who builds and publishes it." },
+    "homepage": { "type": "string", "pattern": "^https://", "maxLength": 300 },
+    "license": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9.+-]+( (AND|OR|WITH) [A-Za-z0-9.+-]+)*$",
+      "description": "SPDX expression. Wine and builds of it are LGPL-2.1-or-later."
+    },
+    "get": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["github_release"],
+      "properties": {
+        "github_release": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["repository", "asset"],
+          "description": "Downloaded from the publisher's GitHub releases, and only when GitHub publishes a SHA-256 checksum for the file, which the download must match.",
+          "properties": {
+            "repository": { "type": "string", "pattern": "^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$" },
+            "asset": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 200,
+              "description": "Regular expression for the file to download; its first group (in parentheses) is the version. The newest matching file is installed and followed for updates."
+            }
+          }
+        }
+      }
+    },
+    "provides": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "family": { "$ref": "#/$defs/tag", "description": "Wine builds: the family recipes name, and what bottles made with it can move to." },
+        "arch": { "enum": ["x86_64", "arm64", "universal"] },
+        "backend": { "enum": ["d3dmetal", "dxmt", "dxvk", "wined3d"], "description": "Graphics layers: what they provide." }
+      }
+    },
+    "libraries_from": {
+      "$ref": "#/$defs/tag",
+      "description": "Another Wine source whose installed build supplies shared libraries this one leaves out (GStreamer, FFmpeg, GLib…). Distiller adds the ones it's missing, then checks every library it loads is there."
+    },
+    "contains_d3dmetal": {
+      "type": "boolean",
+      "description": "The download includes Apple's D3DMetal. Its publisher answers for it under Apple's terms; Distiller labels it and tells players before downloading."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "kind": { "const": "graphics" } } },
+      "then": { "properties": { "provides": { "required": ["backend"] } } }
+    },
+    {
+      "if": { "properties": { "kind": { "const": "wine" } } },
+      "then": { "properties": { "provides": { "not": { "required": ["backend"] } } } }
+    }
+  ],
+  "$defs": {
+    "tag": { "type": "string", "pattern": "^[a-z0-9][a-z0-9-]{1,39}$" }
+  }
+}

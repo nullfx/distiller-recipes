@@ -16,6 +16,20 @@ The easiest way: in Distiller choose **Create Recipe…**, test the game, then *
 4. Run `python3 scripts/build_index.py --check`.
 5. Open a pull request.
 
+## Sources (Wine builds and graphics layers)
+
+Recipes name the Wine build they were checked with by its family (`stack.runner.family`, such as `winehq`), and every family a recipe names needs a source: `components/wine/<tag>.yaml` (graphics layers: `components/graphics/<tag>.yaml`; `schema/component.schema.json` describes the format). A source says who publishes the build, its homepage and licence (SPDX), which GitHub repository's releases it comes from and which files (a pattern whose first group is the version), and, for builds that leave out common libraries, which other Wine source's build supplies them (`libraries_from`). Distiller downloads a source's files only when GitHub publishes a checksum for them, and installs it only once every library it loads is present.
+
+When you install a recipe naming a build Distiller doesn't know, Distiller asks you to describe its source, downloads and checks it, and can submit it as a pull request. A recipe with a new family must come with its source (Validate checks this).
+
+A source is a program that runs on players' Macs, so the rules are stricter than for recipes, and a maintainer reviews every one:
+
+- **From its publisher only**: their own GitHub releases, never a mirror or a re-upload.
+- **Complete**: everything it needs is in its download or comes from another source (`libraries_from`).
+- **Licence declared**: Wine and builds of it are LGPL-2.1-or-later.
+- **D3DMetal**: Distiller and this repository never include Apple's software. If a build includes D3DMetal, its publisher answers for that under Apple's terms, and the source must say so (`contains_d3dmetal: true`) so players are told before downloading it.
+- From forks, sources can only be added; changing or removing a published source needs a maintainer.
+
 ## Pictures
 
 Each game can have an icon, `media/<game-slug>/icon.png` (a square PNG, 32–256 pixels, at most 256 KB), and each recipe up to three screenshots, `media/<game-slug>/<recipe-id>/1.jpg` to `3.jpg` (JPEGs 320–1600 pixels wide, at most 600 KB each; numbered from 1 without gaps; 1 is the cover). The catalogue and the app's Community tab show them. Distiller makes them during the community check: it reads the icon from the installed game's program, and while the game runs a small panel (or ⌃⌥⌘S from inside the game) captures its window whenever it shows something worth sharing (macOS asks once for Screen Recording permission). In the Submit window you pick up to three captures and the cover, and can leave the icon out. A game's icon is added with its first recipe and kept after that; a recipe's screenshots are replaced when the recipe is revised.
